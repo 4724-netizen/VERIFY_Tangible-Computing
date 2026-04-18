@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Motion CAPTCHA · Ball</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-color: #f8fafc;
+      --accent-color: #0f172a;
+      --border-color: #e2e8f0;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --error-red: #ef4444;
+      --human-green: #22c55e;
+      --captcha-blue: #4285f4;
+      --warning-yellow: #eab308;
+      --card-bg: #ffffff;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .wrap { width: 100%; max-width: 520px; position: relative; }
+
+    .home-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      z-index: 100;
+    }
+    .home-btn:hover { background: var(--border-color); }
+
+    .header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .header h1 { font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; }
+    .dot.live { background: var(--human-green); box-shadow: 0 0 6px var(--human-green); }
+    .dot.error { background: var(--error-red); }
+
+    .instructions {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+    .instructions span { color: var(--text-main); font-weight: 500; }
+
+    .arena {
+      position: relative;
+      width: 100%;
+      height: 360px;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--card-bg);
+      margin-bottom: 20px;
+    }
+    .arena.human { border-color: var(--human-green); background: rgba(34,197,94,0.05); }
+    .arena.bot { border-color: var(--error-red); background: rgba(239,68,68,0.05); }
+
+    #trail-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+    .ball {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .arena.human .ball { background: var(--human-green); }
+    .arena.bot .ball { background: var(--error-red); }
+
+    .corner-label {
+      position: absolute;
+      font-size: 9px;
+      color: var(--text-muted);
+      background: rgba(0,0,0,0.04);
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    .corner-label.tl { top: 12px; left: 12px; }
+    .corner-label.tr { top: 12px; right: 12px; }
+
+    .verdict-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(4px);
+      z-index: 20;
+    }
+    .verdict-overlay.show { opacity: 1; pointer-events: all; }
+
+    .verdict-glyph { font-size: 52px; }
+    .verdict-label { font-size: 24px; font-weight: 600; }
+    .verdict-meta { font-size: 12px; color: var(--text-muted); }
+    .verdict-flags { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 12px 0; }
+    .flag-pill {
+      font-size: 10px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      background: white;
+    }
+    .flag-pill.fail { border-color: var(--error-red); color: var(--error-red); }
+    .flag-pill.pass { border-color: var(--human-green); color: var(--human-green); }
+
+    .popup-buttons { display: flex; gap: 12px; margin-top: 16px; }
+    .retry-btn {
+      padding: 8px 28px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 40px;
+      border: 1px solid var(--border-color);
+      background: white;
+    }
+    .next-btn {
+      padding: 8px 28px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 40px;
+      border: none;
+      background: #1a56db;
+      color: white;
+    }
+    .next-btn:hover { background: #0e3fa0; }
+
+    .start-control { margin-bottom: 20px; display: flex; justify-content: center; }
+    .start-btn {
+      background: var(--human-green);
+      border: none;
+      color: white;
+      font-weight: 600;
+      font-size: 15px;
+      padding: 12px 32px;
+      border-radius: 40px;
+      cursor: pointer;
+    }
+    .start-btn:hover { background: #16a34a; }
+
+    .progress-wrap { width: 100%; margin-bottom: 16px; }
+    .timer-track { width: 100%; height: 3px; background: var(--border-color); border-radius: 2px; overflow: hidden; }
+    .progress-bar { height: 100%; background: var(--accent-color); width: 100%; transition: width 1s linear; }
+    .progress-bar.urgent { background: var(--error-red); }
+    .time-display { text-align: right; font-size: 12px; margin-top: 6px; color: var(--text-muted); }
+
+    .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .timer-card, .status-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px 16px; }
+    .card-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
+    .timer-num { font-size: 28px; font-weight: 500; }
+    .timer-num.urgent { color: var(--error-red); }
+    .status-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .s-dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; }
+    .s-dot.pending { background: var(--warning-yellow); }
+    .s-dot.human { background: var(--human-green); }
+    .s-dot.bot { background: var(--error-red); }
+    .s-text { font-size: 12px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <a href="index.html" class="home-btn">← Home</a>
+
+  <div class="header">
+    <div class="dot" id="hdr-dot"></div>
+    <h1>Motion CAPTCHA · Ball Tracking</h1>
+  </div>
+
+  <div class="instructions">
+    Put on the wristband & <span>move naturally</span>. Follow the bouncing ball.<br>
+    <span>▶ Press START</span> to begin 20s motion capture.
+  </div>
+
+  <div class="start-control">
+    <button class="start-btn" id="main-start-btn">▶ Start Verification</button>
+  </div>
+
+  <div class="arena" id="arena">
+    <canvas id="trail-canvas"></canvas>
+    <div class="ball" id="ball"></div>
+    <div class="corner-label tl" id="corner-window">Ready</div>
+    <div class="corner-label tr">MPU6050</div>
+
+    <div class="verdict-overlay" id="verdict-overlay">
+      <div class="verdict-glyph" id="v-glyph"></div>
+      <div class="verdict-label" id="v-label"></div>
+      <div class="verdict-meta" id="v-meta"></div>
+      <div class="verdict-flags" id="v-flags"></div>
+      <div class="popup-buttons">
+        <button class="retry-btn" id="retry-inside">⟳ Try again</button>
+        <button class="next-btn" id="nextFromBall">→ Next Project</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="timer-track"><div class="progress-bar" id="progress-bar" style="width:100%"></div></div>
+    <div class="time-display" id="timeDisplay">00:20</div>
+  </div>
+
+  <div class="bottom-row">
+    <div class="timer-card"><div class="card-label">⏱️ Time remaining</div><div class="timer-num" id="timer-num">0:20</div></div>
+    <div class="status-card"><div class="card-label">📡 Sensor status</div><div class="status-row"><div class="s-dot" id="s-dot"></div><div class="s-text" id="s-text">Awaiting start</div></div></div>
+  </div>
+</div>
+
+<script>
+  const TOTAL_SECS = 20;
+  let bx, by, vx, vy;
+  let timerSec = TOTAL_SECS;
+  let ballRAF = null;
+  let timerIv = null;
+  let lastWindow = 0;
+  let verdictDone = false;
+  let latestData = null;
+  let sessionActive = false;
+  let ws = null;
+
+  const arenaEl = document.getElementById('arena');
+  const ballEl = document.getElementById('ball');
+  const canvas = document.getElementById('trail-canvas');
+  const ctx = canvas.getContext('2d');
+  const startBtn = document.getElementById('main-start-btn');
+  const retryInside = document.getElementById('retry-inside');
+  const nextFromBall = document.getElementById('nextFromBall');
+  const headerDot = document.getElementById('hdr-dot');
+  const cornerWindowSpan = document.getElementById('corner-window');
+  const progressBar = document.getElementById('progress-bar');
+  const timerNum = document.getElementById('timer-num');
+  const timeDisplay = document.getElementById('timeDisplay');
+  const sDot = document.getElementById('s-dot');
+  const sText = document.getElementById('s-text');
+
+  function initBallGeometry() {
+    const aw = arenaEl.clientWidth;
+    const ah = arenaEl.clientHeight;
+    canvas.width = aw;
+    canvas.height = ah;
+    bx = aw * 0.35;
+    by = ah * 0.45;
+    vx = 2.4 + Math.random() * 1.8;
+    vy = 2.0 + Math.random() * 1.5;
+    if (Math.random() > 0.5) vx = -vx;
+    if (Math.random() > 0.5) vy = -vy;
+  }
+
+  function stepBallAnimation() {
+    if (!sessionActive) return;
+    const aw = arenaEl.clientWidth - 24;
+    const ah = arenaEl.clientHeight - 24;
+    if (aw <= 0 || ah <= 0) { ballRAF = requestAnimationFrame(stepBallAnimation); return; }
+    bx += vx; by += vy;
+    if (bx <= 0) { bx = 0; vx = Math.abs(vx); }
+    if (bx >= aw) { bx = aw; vx = -Math.abs(vx); }
+    if (by <= 0) { by = 0; vy = Math.abs(vy); }
+    if (by >= ah) { by = ah; vy = -Math.abs(vy); }
+
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'source-over';
+
+    let trailColor = '#94a3b8';
+    if (arenaEl.classList.contains('human')) trailColor = '#22c55e';
+    else if (arenaEl.classList.contains('bot')) trailColor = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(bx + 12, by + 12, 5, 0, Math.PI * 2);
+    ctx.fillStyle = trailColor + '44';
+    ctx.fill();
+
+    ballEl.style.left = (bx + 12) + 'px';
+    ballEl.style.top = (by + 12) + 'px';
+    ballRAF = requestAnimationFrame(stepBallAnimation);
+  }
+
+  function updateTimerUI() {
+    const m = Math.floor(timerSec / 60);
+    const s = timerSec % 60;
+    const timeStr = `${m}:${s.toString().padStart(2,'0')}`;
+    timerNum.textContent = timeStr;
+    timeDisplay.textContent = timeStr;
+    timerNum.classList.toggle('urgent', timerSec <= 5);
+    const percent = Math.max(0, (timerSec / TOTAL_SECS) * 100);
+    progressBar.style.width = `${percent}%`;
+    progressBar.classList.toggle('urgent', timerSec <= 5);
+  }
+
+  function stopTimerAndAnimation() {
+    if (timerIv) { clearInterval(timerIv); timerIv = null; }
+    if (ballRAF) { cancelAnimationFrame(ballRAF); ballRAF = null; }
+    sessionActive = false;
+  }
+
+  function startTimerAndBall() {
+    if (timerIv) clearInterval(timerIv);
+    if (ballRAF) cancelAnimationFrame(ballRAF);
+    timerSec = TOTAL_SECS;
+    updateTimerUI();
+    sessionActive = true;
+    initBallGeometry();
+    stepBallAnimation();
+    timerIv = setInterval(() => {
+      if (!sessionActive) return;
+      timerSec--;
+      updateTimerUI();
+      if (timerSec <= 0) {
+        clearInterval(timerIv); timerIv = null;
+        sessionActive = false;
+        if (!verdictDone) {
+          if (latestData && latestData.verdict) showVerdict(latestData.verdict, latestData.score, latestData.features || {}, latestData.passes || {});
+          else showVerdict('TIMEOUT', 0, {}, {});
+        }
+        if (ballRAF) cancelAnimationFrame(ballRAF);
+        ballRAF = null;
+      }
+    }, 1000);
+  }
+
+  function showVerdict(verdict, score, features, passes) {
+    if (verdictDone) return;
+    verdictDone = true;
+    stopTimerAndAnimation();
+
+    const overlay = document.getElementById('verdict-overlay');
+    const glyph = document.getElementById('v-glyph');
+    const label = document.getElementById('v-label');
+    const meta = document.getElementById('v-meta');
+    const flagsDiv = document.getElementById('v-flags');
+    flagsDiv.innerHTML = '';
+
+    if (verdict === 'HUMAN') {
+      arenaEl.classList.add('human');
+      glyph.textContent = '✓';
+      glyph.style.color = 'var(--human-green)';
+      label.textContent = 'Human Verified';
+      label.style.color = 'var(--human-green)';
+      meta.textContent = 'Natural wrist motion · accepted';
+      headerDot.className = 'dot live';
+    } else {
+      arenaEl.classList.add('bot');
+      glyph.textContent = '✗';
+      glyph.style.color = 'var(--error-red)';
+      label.textContent = verdict === 'BOT' ? 'Bot Detected' : 'Session Expired';
+      label.style.color = 'var(--error-red)';
+      meta.textContent = verdict === 'BOT' ? `Mechanical pattern · score ${Math.round(score * 100)}%` : 'No sensor data received';
+      headerDot.className = 'dot error';
+    }
+
+    const flagDefs = [
+      { key: 'tremor', label: 'tremor' },
+      { key: 'velocity_variance', label: 'velocity' },
+      { key: 'direction_change', label: 'direction' },
+      { key: 'gyro_rms', label: 'gyro' }
+    ];
+    flagDefs.forEach(({ key, label: lbl }) => {
+      if (passes && passes[key] !== undefined) {
+        const pill = document.createElement('div');
+        pill.className = `flag-pill ${passes[key] ? 'pass' : 'fail'}`;
+        pill.textContent = lbl;
+        flagsDiv.appendChild(pill);
+      }
+    });
+    overlay.classList.add('show');
+  }
+
+  function resetUIAndState() {
+    stopTimerAndAnimation();
+    if (timerIv) { clearInterval(timerIv); timerIv = null; }
+    verdictDone = false;
+    latestData = null;
+    lastWindow = 0;
+    sessionActive = false;
+    arenaEl.classList.remove('human', 'bot');
+    document.getElementById('verdict-overlay').classList.remove('show');
+    headerDot.className = 'dot';
+    cornerWindowSpan.textContent = 'Ready';
+    sDot.className = 's-dot';
+    sText.textContent = 'Ready · press Start';
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    timerSec = TOTAL_SECS;
+    updateTimerUI();
+    initBallGeometry();
+    if (ballEl) ballEl.style.left = (bx + 12) + 'px';
+    if (ballEl) ballEl.style.top = (by + 12) + 'px';
+  }
+
+  function setSensorStatus(verdict, windowNum, error) {
+    if (error) { sDot.className = 's-dot'; sText.textContent = '⚠️ Sensor offline'; headerDot.className = 'dot error'; cornerWindowSpan.textContent = '⚠️ No stream'; return; }
+    headerDot.className = 'dot live';
+    if (verdict === 'PENDING') { sDot.className = 's-dot pending'; sText.textContent = 'Streaming data...'; cornerWindowSpan.textContent = windowNum ? `Window ${windowNum}` : 'Listening'; return; }
+    sDot.className = `s-dot ${verdict.toLowerCase()}`;
+    sText.textContent = `Window #${windowNum} · ${verdict}`;
+    cornerWindowSpan.textContent = `Window ${windowNum}`;
+  }
+
+  function connectWebSocket() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    try {
+      ws = new WebSocket('ws://localhost:8765');
+      ws.onopen = () => { console.log('WS connected'); headerDot.className = 'dot live'; if (!sessionActive && !verdictDone) { sText.textContent = 'Connected · press Start'; sDot.className = 's-dot pending'; cornerWindowSpan.textContent = 'Ready'; } };
+      ws.onmessage = (ev) => {
+        try { const data = JSON.parse(ev.data); setSensorStatus(data.verdict, data.window, data.error); if (data.window > lastWindow && data.verdict !== 'PENDING') { lastWindow = data.window; latestData = data; if (!sessionActive && !verdictDone && timerSec <= 0) showVerdict(data.verdict, data.score, data.features || {}, data.passes || {}); else if (timerSec <= 0 && !verdictDone) showVerdict(data.verdict, data.score, data.features || {}, data.passes || {}); } } catch(e) { console.warn(e); }
+      };
+      ws.onerror = () => { sDot.className = 's-dot'; sText.textContent = '❌ Connection error'; headerDot.className = 'dot error'; };
+      ws.onclose = () => { if (!verdictDone) { sText.textContent = 'Reconnecting...'; sDot.className = 's-dot'; } setTimeout(() => { if (!verdictDone) connectWebSocket(); }, 2500); };
+    } catch(e) { console.error(e); }
+  }
+
+  function startFullSession() {
+    if (sessionActive) return;
+    if (verdictDone) { resetFullAndStart(); return; }
+    resetUIAndState();
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      connectWebSocket();
+      setTimeout(() => { if (ws && ws.readyState === WebSocket.OPEN) beginLiveSession(); else { sText.textContent = '⚠️ Server offline'; headerDot.className = 'dot error'; alert('Python backend not reachable.\nPlease run "python captcha.py"'); } }, 300);
+    } else { beginLiveSession(); }
+  }
+
+  function beginLiveSession() {
+    resetUIAndState();
+    verdictDone = false;
+    sessionActive = true;
+    lastWindow = 0;
+    latestData = null;
+    sText.textContent = 'Tracking wrist motion...';
+    sDot.className = 's-dot pending';
+    cornerWindowSpan.textContent = 'Session Active';
+    startTimerAndBall();
+  }
+
+  function resetFullAndStart() {
+    resetUIAndState();
+    verdictDone = false;
+    sessionActive = false;
+    if (timerIv) clearInterval(timerIv);
+    if (ballRAF) cancelAnimationFrame(ballRAF);
+    initBallGeometry();
+    ballEl.style.left = (bx + 12) + 'px';
+    ballEl.style.top = (by + 12) + 'px';
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    beginLiveSession();
+  }
+
+  function handleRetry() { if (sessionActive) stopTimerAndAnimation(); resetFullAndStart(); }
+
+  function handleResize() {
+    if (!arenaEl) return;
+    const aw = arenaEl.clientWidth, ah = arenaEl.clientHeight;
+    canvas.width = aw; canvas.height = ah;
+    if (!sessionActive && !verdictDone) { initBallGeometry(); if (ballEl) { ballEl.style.left = (bx + 12) + 'px'; ballEl.style.top = (by + 12) + 'px'; } }
+  }
+
+  window.addEventListener('load', () => { connectWebSocket(); initBallGeometry(); handleResize(); ballEl.style.left = (bx + 12) + 'px'; ballEl.style.top = (by + 12) + 'px'; ctx.clearRect(0, 0, canvas.width, canvas.height); });
+  window.addEventListener('resize', () => { handleResize(); });
+  startBtn.addEventListener('click', () => { startFullSession(); });
+  retryInside.addEventListener('click', () => { handleRetry(); });
+  if (nextFromBall) { nextFromBall.addEventListener('click', () => { if (ws) ws.close(); stopTimerAndAnimation(); window.location.href = 'next.html?to=button.html'; }); }
+</script>
+</body>
+</html>

@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balance Verification · Neural Sync</title>
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --accent-color: #0f172a;
+      --border-color: #e2e8f0;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --error-red: #ef4444;
+      --human-green: #22c55e;
+      --captcha-blue: #4285f4;
+      --warning-yellow: #eab308;
+      --card-bg: #ffffff;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .back-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: all 0.2s;
+      z-index: 100;
+    }
+    .back-btn:hover {
+      background: var(--border-color);
+    }
+
+    .subtitle {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 0 0 12px 0;
+    }
+
+    .instructions {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      margin-bottom: 30px;
+    }
+
+    #webcam {
+      position: fixed;
+      top: -1000px;
+      left: -1000px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .model-status {
+      font-size: 12px;
+      margin: 10px auto 20px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 8px 16px;
+      background: #f1f5f9;
+      border-radius: 20px;
+      display: inline-block;
+    }
+    .model-status.loaded { 
+      background: rgba(34,197,94,0.1); 
+      color: var(--human-green);
+    }
+    .model-status.error { 
+      background: rgba(239,68,68,0.1); 
+      color: var(--error-red);
+    }
+
+    .analysis-grid {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      margin-bottom: 40px;
+      margin-top: 20px;
+    }
+
+    .bar-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .vertical-track {
+      width: 80px;
+      height: 160px;
+      background: var(--border-color);
+      border-radius: 40px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .fill {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      transition: height 0.2s ease-out;
+    }
+
+    .fill-human { background: var(--human-green); }
+    .fill-bot { background: var(--error-red); }
+
+    .percentage-text {
+      font-size: 18px;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+    .percentage-text.human { color: var(--human-green); }
+    .percentage-text.bot { color: var(--error-red); }
+
+    .label { 
+      font-size: 12px; 
+      font-weight: 600; 
+      color: var(--text-muted); 
+      text-transform: uppercase; 
+      letter-spacing: 0.08em;
+    }
+
+    .timer-wrap { width: 100%; margin-bottom: 24px; }
+    .timer-track { width: 100%; height: 4px; background: var(--border-color); border-radius: 2px; overflow: hidden; }
+    .bar { height: 100%; width: 0%; background: var(--accent-color); transition: background 0.4s ease, width 1s linear; }
+    .time-display { text-align: right; font-size: 13px; font-weight: 500; margin-top: 6px; color: var(--text-muted); font-family: monospace; }
+    .time-display.urgent { color: var(--error-red); }
+
+    .start-btn {
+      background: var(--human-green);
+      border: none;
+      color: white;
+      padding: 14px 36px;
+      border-radius: 40px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      margin-bottom: 30px;
+      transition: all 0.2s;
+      width: 100%;
+      max-width: 280px;
+    }
+    .start-btn:hover {
+      transform: scale(1.02);
+      background: #16a34a;
+    }
+    .start-btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .camera-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .indicator-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+      transition: background 0.2s;
+    }
+    .indicator-dot.active {
+      background: var(--human-green);
+      box-shadow: 0 0 6px var(--human-green);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .popup {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .popup.show { display: flex; }
+
+    .captcha-card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      width: 340px;
+      box-shadow: 0 20px 35px rgba(0,0,0,0.2);
+      animation: slideUp 0.3s ease-out;
+    }
+
+    .result-icon { font-size: 52px; text-align: center; margin-bottom: 12px; }
+    .result-title { font-size: 22px; font-weight: 600; text-align: center; margin-bottom: 8px; }
+    .result-message { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 20px; }
+    .result-stats {
+      background: #f1f5f9;
+      padding: 14px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 12px;
+    }
+    .result-stats p { margin: 6px 0; }
+
+    .retry-btn-popup, .next-btn-popup {
+      padding: 10px 20px;
+      border-radius: 40px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+      border: none;
+    }
+    .retry-btn-popup { background: #333; color: white; }
+    .retry-btn-popup:hover { background: #555; }
+    .next-btn-popup { background: #1a56db; color: white; }
+    .next-btn-popup:hover { background: #0e3fa0; }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+<a class="back-btn" href="index.html">← Home</a>
+
+<div class="container">
+    <div class="subtitle">Neural Balancing</div>
+    <h1>Verify Humanity</h1>
+    
+    <p class="instructions">
+        System is analyzing physical equilibrium. Position your face in front of the camera.
+        <br>AI will detect if you are human or bot based on facial presence.
+    </p>
+
+    <video id="webcam" autoplay playsinline muted></video>
+
+    <div class="camera-indicator" id="cameraIndicator" style="display: none;">
+        <div class="indicator-dot" id="indicatorDot"></div>
+        <span id="indicatorText">Camera active</span>
+    </div>
+
+    <div id="model-status" class="model-status">Loading AI model...</div>
+
+    <button class="start-btn" id="startBtn">▶ Start Verification</button>
+
+    <div class="analysis-grid">
+        <div class="bar-group">
+            <div class="vertical-track"><div class="fill fill-human" id="humanFill" style="height: 50%"></div></div>
+            <div class="label">Human</div>
+            <div class="percentage-text human" id="humanPercent">50%</div>
+        </div>
+        <div class="bar-group">
+            <div class="vertical-track"><div class="fill fill-bot" id="botFill" style="height: 50%"></div></div>
+            <div class="label">Bot</div>
+            <div class="percentage-text bot" id="botPercent">50%</div>
+        </div>
+    </div>
+
+    <div class="timer-wrap">
+        <div class="timer-track"><div class="bar" id="timerBar"></div></div>
+        <div class="time-display" id="timeDisplay">00:20</div>
+    </div>
+</div>
+
+<div id="resultPopup" class="popup">
+    <div class="captcha-card">
+        <div class="result-icon" id="resultIcon">🤖</div>
+        <div class="result-title" id="resultTitle">Verification Result</div>
+        <div class="result-message" id="resultMessage"></div>
+        <div class="result-stats" id="resultStats"></div>
+        <div class="button-group">
+            <button class="retry-btn-popup" id="retryFromPopup">⟳ Try Again</button>
+            <button class="next-btn-popup" id="nextFromWeight" style="display: none;">→ Next Project</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+<script>
+    const USE_SIMULATION = true;
+    const TOTAL_SECS = 20;
+    
+    let model;
+    let webcamVideo = document.getElementById('webcam');
+    let isStreaming = false;
+    let sessionActive = false;
+    let timerInterval = null;
+    let predictionInterval = null;
+    let totalTime = TOTAL_SECS;
+    let currentTime = TOTAL_SECS;
+    let humanConfidence = 50;
+    let botConfidence = 50;
+    
+    const startBtn = document.getElementById('startBtn');
+    const modelStatus = document.getElementById('model-status');
+    const humanFill = document.getElementById('humanFill');
+    const botFill = document.getElementById('botFill');
+    const humanPercent = document.getElementById('humanPercent');
+    const botPercent = document.getElementById('botPercent');
+    const timerBar = document.getElementById('timerBar');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const resultPopup = document.getElementById('resultPopup');
+    const resultIcon = document.getElementById('resultIcon');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultMessage = document.getElementById('resultMessage');
+    const resultStats = document.getElementById('resultStats');
+    const cameraIndicator = document.getElementById('cameraIndicator');
+    const indicatorDot = document.getElementById('indicatorDot');
+    const indicatorText = document.getElementById('indicatorText');
+
+    async function initTeachableMachine() {
+        if (USE_SIMULATION) {
+            modelStatus.textContent = '✅ Simulation mode active (ready for testing)';
+            modelStatus.classList.add('loaded');
+            return true;
+        }
+        modelStatus.textContent = '⚠️ Using fallback mode. Train model at teachablemachine.withgoogle.com';
+        modelStatus.classList.add('error');
+        return false;
+    }
+
+    async function setupWebcam() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            webcamVideo.srcObject = stream;
+            isStreaming = true;
+            cameraIndicator.style.display = 'flex';
+            indicatorDot.classList.add('active');
+            indicatorText.textContent = 'Camera active · analyzing';
+            await new Promise((resolve) => {
+                webcamVideo.onloadedmetadata = () => {
+                    webcamVideo.play();
+                    resolve();
+                };
+            });
+            return true;
+        } catch (error) {
+            console.error('Webcam error:', error);
+            modelStatus.textContent = '⚠️ Camera access denied. Please allow camera access.';
+            modelStatus.classList.add('error');
+            return false;
+        }
+    }
+
+    async function getPrediction() {
+        if (!sessionActive) return null;
+        
+        if (USE_SIMULATION) {
+            const randomWalk = (Math.random() - 0.5) * 12;
+            let newHuman = humanConfidence + randomWalk;
+            newHuman = Math.min(92, Math.max(8, newHuman));
+            if (newHuman < 25 && Math.random() > 0.7) newHuman += 12;
+            if (newHuman > 75 && Math.random() > 0.7) newHuman -= 12;
+            humanConfidence = newHuman;
+            botConfidence = 100 - humanConfidence;
+            updateBars();
+            return { human: humanConfidence / 100, bot: botConfidence / 100 };
+        }
+        return null;
+    }
+
+    function updateBars() {
+        humanFill.style.height = humanConfidence + '%';
+        botFill.style.height = botConfidence + '%';
+        humanPercent.textContent = Math.round(humanConfidence) + '%';
+        botPercent.textContent = Math.round(botConfidence) + '%';
+        
+        if (humanConfidence > 60) humanPercent.style.color = 'var(--human-green)';
+        else humanPercent.style.color = 'var(--text-muted)';
+        if (botConfidence > 60) botPercent.style.color = 'var(--error-red)';
+        else botPercent.style.color = 'var(--text-muted)';
+    }
+
+    function updateTimer() {
+        const mins = Math.floor(currentTime / 60);
+        const secs = currentTime % 60;
+        timeDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        const percent = ((totalTime - currentTime) / totalTime) * 100;
+        timerBar.style.width = percent + '%';
+        if (currentTime <= 5) {
+            timerBar.style.background = 'var(--error-red)';
+            timeDisplay.classList.add('urgent');
+        }
+        if (currentTime <= 0) endSession();
+    }
+
+    function startSession() {
+        if (sessionActive) return;
+        sessionActive = true;
+        currentTime = totalTime;
+        humanConfidence = 50;
+        botConfidence = 50;
+        updateBars();
+        updateTimer();
+        indicatorText.textContent = 'Analyzing facial presence...';
+        
+        timerInterval = setInterval(() => {
+            if (!sessionActive) return;
+            currentTime--;
+            updateTimer();
+        }, 1000);
+        
+        predictionInterval = setInterval(() => {
+            if (sessionActive) getPrediction();
+        }, 500);
+        
+        startBtn.disabled = true;
+        startBtn.textContent = 'Verifying...';
+    }
+
+    function endSession() {
+        sessionActive = false;
+        if (timerInterval) clearInterval(timerInterval);
+        if (predictionInterval) clearInterval(predictionInterval);
+        timerInterval = null;
+        predictionInterval = null;
+        indicatorText.textContent = 'Camera idle';
+        indicatorDot.classList.remove('active');
+        
+        const finalHuman = humanConfidence;
+        const finalBot = botConfidence;
+        const isHuman = finalHuman > 50;
+        const nextFromWeight = document.getElementById('nextFromWeight');
+        
+        if (isHuman) {
+            resultIcon.innerHTML = '✓';
+            resultIcon.style.fontSize = '48px';
+            resultTitle.textContent = 'Human Verified';
+            resultTitle.style.color = 'var(--human-green)';
+            resultMessage.textContent = 'Biometric analysis confirms human presence.';
+            if (nextFromWeight) nextFromWeight.style.display = 'block';
+        } else {
+            resultIcon.innerHTML = '✗';
+            resultIcon.style.fontSize = '48px';
+            resultTitle.textContent = 'Bot Detected';
+            resultTitle.style.color = 'var(--error-red)';
+            resultMessage.textContent = 'Unable to confirm human presence. Please try again.';
+            if (nextFromWeight) nextFromWeight.style.display = 'none';
+        }
+        
+        resultStats.innerHTML = `
+            <p>📊 Final Analysis:</p>
+            <p>Human Confidence: ${Math.round(finalHuman)}%</p>
+            <p>Bot Confidence: ${Math.round(finalBot)}%</p>
+            <p>Duration: ${totalTime} seconds</p>
+        `;
+        
+        resultPopup.classList.add('show');
+        startBtn.disabled = false;
+        startBtn.textContent = '▶ Start Verification';
+        
+        const retryFromPopup = document.getElementById('retryFromPopup');
+        if (retryFromPopup) {
+            retryFromPopup.onclick = () => {
+                resultPopup.classList.remove('show');
+                sessionActive = false;
+                currentTime = totalTime;
+                humanConfidence = 50;
+                botConfidence = 50;
+                updateBars();
+                updateTimer();
+                timerBar.style.background = 'var(--accent-color)';
+                timeDisplay.classList.remove('urgent');
+                startBtn.disabled = false;
+                startBtn.textContent = '▶ Start Verification';
+                indicatorText.textContent = 'Camera ready';
+                indicatorDot.classList.remove('active');
+            };
+        }
+        
+        if (nextFromWeight) {
+            nextFromWeight.onclick = () => {
+                if (webcamVideo.srcObject) {
+                    const tracks = webcamVideo.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                }
+                window.location.href = 'next.html?to=index.html';
+            };
+        }
+    }
+
+    async function init() {
+        await initTeachableMachine();
+        startBtn.addEventListener('click', async () => {
+            if (sessionActive) return;
+            const webcamSuccess = await setupWebcam();
+            if (webcamSuccess) startSession();
+            else alert('Camera access is required for verification.');
+        });
+    }
+    
+    init();
+    
+    window.addEventListener('beforeunload', () => {
+        if (webcamVideo.srcObject) {
+            const tracks = webcamVideo.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+        }
+        if (timerInterval) clearInterval(timerInterval);
+        if (predictionInterval) clearInterval(predictionInterval);
+    });
+</script>
+</body>
+</html>

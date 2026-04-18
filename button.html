@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>React Like a Human</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      background: #ffffff;
+      font-family: 'Poppins', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 60px;
+      gap: 28px;
+    }
+
+    /* ── Back button (preserved from original button.html) ── */
+    .back-btn {
+      position: fixed;
+      top: 1.25rem;
+      right: 1.25rem;
+      background: transparent;
+      border: 1px solid rgba(0,0,0,0.22);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 13px;
+      color: #6b6b6b;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s;
+      z-index: 100;
+      font-family: 'Poppins', sans-serif;
+    }
+    .back-btn:hover { background: #f5f5f3; }
+
+    /* ── Text box ── */
+    .text-box {
+      width: 100%;
+      max-width: 1100px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 32px 48px;
+      background: #fff;
+      flex-shrink: 0;
+    }
+
+    .text-box h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 14px;
+    }
+
+    .text-box p {
+      font-size: 17px;
+      font-weight: 400;
+      color: #444;
+      line-height: 1.6;
+      max-width: 700px;
+    }
+
+    /* ── Colour box ── */
+    .colour-box-wrapper {
+      width: 100%;
+      max-width: 1100px;
+      flex: 1;
+      min-height: 0;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .start-btn {
+      font-family: 'Poppins', sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+      padding: 13px 44px;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+    }
+
+    .start-btn:hover { background: #333; }
+
+    .colour-display {
+      width: 100%;
+      flex: 1;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: background-color 0.15s ease;
+    }
+
+    /* ── Progress bar ── */
+    .timer-bar-wrapper {
+      width: 100%;
+      height: 14px;
+      background: transparent;
+      border-top: 2px solid #ccc;
+      display: none;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .timer-bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 0%;
+      background: #1a1a1a;
+      transition: width 0.1s linear, background-color 0.4s ease;
+    }
+
+    .timer-bar.danger { background: #e74c3c; }
+
+    /* ── Popup ── */
+    .popup-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .popup-overlay.show { display: flex; }
+
+    .popup {
+      background: #fff;
+      border-radius: 16px;
+      padding: 44px 52px;
+      text-align: center;
+      max-width: 440px;
+      width: 90%;
+    }
+
+    .popup h2 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #c0392b;
+      margin-bottom: 10px;
+    }
+
+    .popup h3 {
+      font-size: 17px;
+      font-weight: 400;
+      color: #555;
+      margin-bottom: 32px;
+    }
+
+    .popup-btns {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+    }
+
+    .popup-btns button {
+      font-family: 'Poppins', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 11px 32px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid #1a1a1a;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .btn-try  { background: #1a1a1a; color: #fff; }
+    .btn-try:hover  { background: #333; }
+    .btn-next { background: #fff; color: #1a1a1a; }
+    .btn-next:hover { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+
+  <!-- Back button (preserved from original) -->
+  <a class="back-btn" href="index.html">← Home</a>
+
+  <!-- Text Box -->
+  <div class="text-box">
+    <h1>React like a human</h1>
+    <p>When a colour appears on the screen press the correct button to turn on the led of the respective colour</p>
+  </div>
+
+  <!-- Colour Box -->
+  <div class="colour-box-wrapper" id="colourBoxWrapper">
+    <button class="start-btn" id="startBtn" onclick="startGame()">Start</button>
+    <div class="colour-display" id="colourDisplay"></div>
+    <div class="timer-bar-wrapper" id="timerBarWrapper">
+      <div class="timer-bar" id="timerBar"></div>
+    </div>
+  </div>
+
+  <!-- Popup -->
+  <div class="popup-overlay" id="popupOverlay">
+    <div class="popup">
+      <h2>Test Failed</h2>
+      <h3 id="popupSubheading">Error made</h3>
+      <div class="popup-btns">
+        <button class="btn-try"  id="tryAgainBtn" onclick="tryAgain()">Try Again</button>
+        <button class="btn-next" onclick="goNext()">→ Proceed to Next Project</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const colours = [
+      { name: 'Red',    bg: '#e74c3c' },
+      { name: 'Orange', bg: '#e67e22' },
+      { name: 'Blue',   bg: '#2980b9' },
+      { name: 'Green',  bg: '#27ae60' },
+    ];
+
+    const subheadings = ['Error made', 'Too Fast', 'Too Slow'];
+
+    const TOTAL_TIME  = 10000;
+    const SWITCH_TIME = 700;
+    const DANGER_MS   = 3000;
+
+    let colourInterval = null;
+    let timerInterval  = null;
+    let elapsed        = 0;
+
+    let attemptCount = parseInt(sessionStorage.getItem('rc_attempts') || '0');
+
+    function startGame() {
+      document.getElementById('startBtn').style.display = 'none';
+
+      const colourDisplay   = document.getElementById('colourDisplay');
+      const timerBarWrapper = document.getElementById('timerBarWrapper');
+      const timerBar        = document.getElementById('timerBar');
+
+      colourDisplay.style.display   = 'flex';
+      timerBarWrapper.style.display = 'block';
+
+      let lastIdx = -1;
+      function showNext() {
+        let idx;
+        do { idx = Math.floor(Math.random() * colours.length); } while (idx === lastIdx);
+        lastIdx = idx;
+        const c = colours[idx];
+        colourDisplay.style.backgroundColor = c.bg;
+        colourDisplay.textContent = c.name;
+      }
+      showNext();
+      colourInterval = setInterval(showNext, SWITCH_TIME);
+
+      elapsed = 0;
+      timerBar.style.width = '0%';
+      timerBar.classList.remove('danger');
+
+      timerInterval = setInterval(() => {
+        elapsed += 100;
+        const pct = Math.min(100, (elapsed / TOTAL_TIME) * 100);
+        timerBar.style.width = pct + '%';
+
+        if ((TOTAL_TIME - elapsed) <= DANGER_MS) {
+          timerBar.classList.add('danger');
+        }
+
+        if (elapsed >= TOTAL_TIME) {
+          endGame();
+        }
+      }, 100);
+    }
+
+    function endGame() {
+      clearInterval(colourInterval);
+      clearInterval(timerInterval);
+
+      const cd = document.getElementById('colourDisplay');
+      cd.style.backgroundColor = '#fff';
+      cd.textContent = '';
+
+      attemptCount++;
+      sessionStorage.setItem('rc_attempts', attemptCount);
+
+      const subIdx = (attemptCount - 1) % subheadings.length;
+      document.getElementById('popupSubheading').textContent = subheadings[subIdx];
+
+      document.getElementById('tryAgainBtn').style.display =
+        attemptCount >= 3 ? 'none' : 'inline-block';
+
+      setTimeout(() => {
+        document.getElementById('popupOverlay').classList.add('show');
+      }, 300);
+    }
+
+    function tryAgain() { location.reload(); }
+    function goNext()   { location.href = 'next.html?to=weight.html'; }  // preserved from original
+  </script>
+
+</body>
+</html>
